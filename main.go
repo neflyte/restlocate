@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -22,6 +23,9 @@ var (
 	httpPort    int
 	httpAddress string
 )
+
+//go:embed index.html
+var webUiIndex []byte
 
 func init() {
 	flag.IntVar(&httpPort, "port", 8080, "http server port")
@@ -70,7 +74,7 @@ func runLocate(search *string, regex *regexp.Regexp, caseInsensitive bool) []str
 	}
 	locateStdout, err := locateCmd.Output()
 	if err != nil {
-		log.Printf(fmt.Sprintf("Failed to execute locate command: %v\n", err))
+		log.Printf("Failed to execute locate command: %v\n", err)
 		return nil
 	}
 	results := strings.Split(string(locateStdout), "\n")
@@ -81,21 +85,29 @@ func runLocate(search *string, regex *regexp.Regexp, caseInsensitive bool) []str
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[%s] %s\n", r.RemoteAddr, r.URL)
 	query := r.URL.Query()
+	// parse query parameters
 	caseInsensitive := false
 	if query.Has(QueryParamCaseInsensitive) {
 		if query.Get(QueryParamCaseInsensitive) == "true" {
 			caseInsensitive = true
 		}
 	}
-	var results []string
+	searchPattern := ""
+	regexPattern := ""
 	if query.Has(QueryParamSearch) {
-		searchPattern := strings.TrimSpace(query.Get(QueryParamSearch))
+		searchPattern = strings.TrimSpace(query.Get(QueryParamSearch))
+	} else if query.Has(QueryParamRegex) {
+		regexPattern = strings.TrimSpace(query.Get(QueryParamRegex))
+	}
+	// perform search
+	var results []string
+	if searchPattern != "" {
 		log.Printf("[%s] searchPattern=%s, caseInsensitive=%t\n", r.RemoteAddr, searchPattern, caseInsensitive)
 		results = runLocate(&searchPattern, nil, caseInsensitive)
-	} else if query.Has(QueryParamRegex) {
-		regexPattern := query.Get(QueryParamRegex)
+	} else if regexPattern != "" {
 		regex, err := regexp.Compile(regexPattern)
 		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte(err.Error()))
 			return
@@ -110,23 +122,28 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	// marshal and return results
 	log.Printf("[%s] %d results\n", r.RemoteAddr, len(results))
 	resultsJson, err := json.Marshal(results)
 	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
 		return
 	}
-	_, err = w.Write(resultsJson)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(resultsJson)
+}
+
+// webUiHandler serves the web UI content
+func webUiHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	_, _ = w.Write(webUiIndex)
 }
 
 func main() {
 	flag.Parse()
+	http.HandleFunc("/", webUiHandler)
 	http.HandleFunc("/locate", handler)
 	httpAddr := fmt.Sprintf("%s:%d", httpAddress, httpPort)
 	log.Println("Listening on", httpAddr)
