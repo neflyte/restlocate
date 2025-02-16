@@ -1,0 +1,12 @@
+[Unit]
+Description=REST locate HTTP service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/restlocate
+Restart=on-failure
+StandardOutput=file:%h/restlocate.log
+
+[Install]
+WantedBy=default.target
