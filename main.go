@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -72,9 +73,15 @@ func runLocate(search *string, regex *regexp.Regexp, caseInsensitive bool) []str
 	} else {
 		return nil
 	}
+	log.Printf("command: locate %v\n", locateCmd.Args)
 	locateStdout, err := locateCmd.Output()
 	if err != nil {
-		log.Printf("Failed to execute locate command: %v\n", err)
+		exitErr := new(exec.ExitError)
+		if errors.As(err, &exitErr) {
+			log.Printf("Failed to execute locate command: %v\nStderr: %s", err, exitErr.Stderr)
+			return nil
+		}
+		log.Printf("Unexpected error when executing locate command: %v\n", err)
 		return nil
 	}
 	results := strings.Split(string(locateStdout), "\n")
@@ -87,10 +94,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	// parse query parameters
 	caseInsensitive := false
-	if query.Has(QueryParamCaseInsensitive) {
-		if query.Get(QueryParamCaseInsensitive) == "true" {
-			caseInsensitive = true
-		}
+	if query.Has(QueryParamCaseInsensitive) && query.Get(QueryParamCaseInsensitive) == "true" {
+		caseInsensitive = true
 	}
 	searchPattern := ""
 	regexPattern := ""
