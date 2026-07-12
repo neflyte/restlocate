@@ -62,12 +62,12 @@ func trimSliceString(s []string) []string {
 // runLocate executes the `locate` command
 func runLocate(search *string, regex *regexp.Regexp, caseInsensitive bool) []string {
 	locateCmd := exec.Command("locate")
-	locateCmd.Args = []string{"--null"}
+	locateCmd.Args = []string{"-0", "-N"}
 	if caseInsensitive {
-		locateCmd.Args = append(locateCmd.Args, "--ignore-case")
+		locateCmd.Args = append(locateCmd.Args, "-i")
 	}
 	if search != nil {
-		locateCmd.Args = append(locateCmd.Args, "--", *search)
+		locateCmd.Args = append(locateCmd.Args, *search)
 	} else if regex != nil {
 		locateCmd.Args = append(locateCmd.Args, "--regex", regex.String())
 	} else {
@@ -94,7 +94,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	// parse query parameters
 	caseInsensitive := false
-	if query.Has(QueryParamCaseInsensitive) && query.Get(QueryParamCaseInsensitive) == "true" {
+	if query.Has(QueryParamCaseInsensitive) && query.Get(QueryParamCaseInsensitive) == "on" {
 		caseInsensitive = true
 	}
 	searchPattern := ""
