@@ -90,7 +90,7 @@ func runLocate(search *string, regex *regexp.Regexp, caseInsensitive bool) []str
 
 // handler is the method that handles HTTP requests to the /locate URL
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[%s] %s\n", r.RemoteAddr, r.URL)
+	log.Printf("handler: [%s] %s\n", r.RemoteAddr, r.URL)
 	query := r.URL.Query()
 	// parse query parameters
 	caseInsensitive := false
@@ -141,7 +141,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 // webUiHandler serves the web UI content
-func webUiHandler(w http.ResponseWriter, _ *http.Request) {
+func webUiHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("webUiHandler: [%s] %s\n", r.RemoteAddr, r.URL)
 	w.Header().Set("Content-Type", "text/html")
 	_, _ = w.Write(webUiIndex)
 }
